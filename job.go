@@ -127,10 +127,10 @@ func (c cronJobDefinition) setup(j *internalJob, location *time.Location) error 
 	return nil
 }
 
-// CronJob defines a new job using the crontab syntax. `* * * * *`.
+// CronJob defines a new job using the crontab syntax: `* * * * *`.
 // An optional 6th field can be used at the beginning if withSeconds
-// is set to true. `* * * * * *`.
-// The timezone can be set on the Scheduler using WithLocation. Or in the
+// is set to true: `* * * * * *`.
+// The timezone can be set on the Scheduler using WithLocation, or in the
 // crontab in the form `TZ=America/Chicago * * * * *` or
 // `CRON_TZ=America/Chicago * * * * *`
 func CronJob(crontab string, withSeconds bool) JobDefinition {

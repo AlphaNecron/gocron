@@ -1,7 +1,7 @@
 # gocron: A Golang Job Scheduling Package.
 
-[![CI State](https://github.com/go-co-op/gocron/actions/workflows/go_test.yml/badge.svg?branch=main&event=push)](https://github.com/go-co-op/gocron/actions)
-![Go Report Card](https://goreportcard.com/badge/github.com/go-co-op/gocron) [![Go Doc](https://godoc.org/github.com/go-co-op/gocron?status.svg)](https://pkg.go.dev/github.com/go-co-op/gocron)
+[![CI State](https://github.com/go-co-op/gocron/actions/workflows/go_test.yml/badge.svg?branch=v2&event=push)](https://github.com/go-co-op/gocron/actions)
+![Go Report Card](https://goreportcard.com/badge/github.com/go-co-op/gocron) [![Go Doc](https://godoc.org/github.com/go-co-op/gocron/v2?status.svg)](https://pkg.go.dev/github.com/go-co-op/gocron/v2)
 
 gocron is a job scheduling package which lets you run Go functions at pre-determined intervals.
 
@@ -45,13 +45,18 @@ func main() {
 		gocron.DurationJob(
 			10*time.Second,
 		),
-        gocron.NewTask(
-            func() {},
-        ),
+		gocron.NewTask(
+			func(a string, b int) {
+				// do things
+            },
+			"hello",
+			1,
+		),
 	)
 	if err != nil {
 		// handle error
 	}
+	// each job has a unique id
 	fmt.Println(j.ID())
 	
 	// start the scheduler
@@ -65,6 +70,46 @@ func main() {
 }
 ```
 
+## Features
+
+- **Job types**: Jobs can be run at various intervals.
+  - [**Duration**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#DurationJob): 
+    Jobs can be run at a fixed `time.Duration`.
+  - [**Random duration**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#DurationRandomJob):
+    Jobs can be run at a random `time.Duration` between a min and max.
+  - [**Cron**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#CronJob): 
+    Jobs can be run using a crontab.
+  - [**Daily**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#DailyJob): 
+    Jobs can be run every x days at specific times.
+  - [**Weekly**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WeeklyJob):
+    Jobs can be run every x weeks on specific days of the week and at specific times.
+  - [**Monthly**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#MonthlyJob):
+    Jobs can be run every x months on specific days of the month and at specific times.
+- **Limited Concurrency**: Jobs can be limited individually or across the entire scheduler.
+  - [**Per job limiting with singleton mode**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithSingletonMode): 
+    Jobs can be limited to a single concurrent execution that either reschedules (skips overlapping executions)
+    or queues (waits for the previous execution to finish).
+  - [**Per scheduler limiting with limit mode**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithLimitConcurrentJobs):
+    Jobs can be limited to a certain number of concurrent executions across the entire scheduler
+    using either reschedule (skip when the limit is met) or queue (jobs are added to a queue to 
+    wait for the limit to be available).
+- **Distributed instances of gocron**: Multiple instances of gocron can be run.
+  - [**Elector**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithDistributedElector):
+    An elector can be used to elect a single instance of gocron to run as the primary with the 
+    other instances checking to see if a new leader needs to be elected.
+- **Events**: Job events can trigger actions.
+  - [**Listeners**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithEventListeners):
+    [Event listeners](https://pkg.go.dev/github.com/go-co-op/gocron/v2#EventListener)
+    can be added to a job or all jobs in the
+    [scheduler](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithGlobalJobOptions)
+    to listen for job events and trigger actions.
+- **Options**: Many job and scheduler options are available
+  - [**Job options**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#JobOption):
+    Job options can be set when creating a job using `NewJob`.
+  - [**Global job options**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#WithGlobalJobOptions):
+    Global job options can be set when creating a scheduler using `NewScheduler`.
+  - [**Scheduler options**](https://pkg.go.dev/github.com/go-co-op/gocron/v2#SchedulerOption):
+    Scheduler options can be set when creating a scheduler using `NewScheduler`.
 
 ## Supporters
 
