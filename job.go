@@ -180,6 +180,14 @@ func (d durationRandomJobDefinition) setup(j *internalJob, _ *time.Location) err
 
 // DurationRandomJob defines a new job that runs on a random interval
 // between the min and max duration values provided.
+//
+// To achieve a similar behavior as tools that use a splay/jitter technique
+// consider the median value as the baseline and the difference between the
+// max-median or median-min as the splay/jitter.
+//
+// For example, if you want a job to run every 5 minutes, but want to add
+// up to 1 min of jitter to the interval, you could use
+// DurationRandomJob(4*time.Minute, 6*time.Minute)
 func DurationRandomJob(minDuration, maxDuration time.Duration) JobDefinition {
 	return durationRandomJobDefinition{
 		min: minDuration,
