@@ -90,7 +90,7 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		startCh:            make(chan struct{}),
 		startedCh:          make(chan struct{}),
 		stopCh:             make(chan struct{}),
-		stopErrCh:          make(chan error),
+		stopErrCh:          make(chan error, 1),
 		jobOutRequestCh:    make(chan jobOutRequest),
 		allJobsOutRequest:  make(chan allJobsOutRequest),
 	}
@@ -190,7 +190,11 @@ func (s *scheduler) selectAllJobsOutRequest(out allJobsOutRequest) {
 		outJobs[counter] = s.jobFromInternalJob(j)
 		counter++
 	}
-	out.outChan <- outJobs
+	select {
+	case <-s.shutdownCtx.Done():
+	case out.outChan <- outJobs:
+	}
+
 }
 
 func (s *scheduler) selectRemoveJob(id uuid.UUID) {
@@ -213,9 +217,9 @@ func (s *scheduler) selectExecJobIDsOut(id uuid.UUID) {
 				select {
 				case <-s.shutdownCtx.Done():
 					return
-				default:
+				case s.removeJobCh <- id:
 				}
-				s.removeJobCh <- id
+
 			}()
 			return
 		}
@@ -227,20 +231,22 @@ func (s *scheduler) selectExecJobIDsOut(id uuid.UUID) {
 		select {
 		case <-s.shutdownCtx.Done():
 			return
-		default:
+		case s.exec.jobsIDsIn <- id:
 		}
-		s.exec.jobsIDsIn <- id
+
 	})
 	s.jobs[id] = j
 }
 
 func (s *scheduler) selectJobOutRequest(out jobOutRequest) {
 	if j, ok := s.jobs[out.id]; ok {
-		out.outChan <- j
-		close(out.outChan)
-	} else {
-		close(out.outChan)
+		select {
+		case out.outChan <- j:
+		case <-s.shutdownCtx.Done():
+		}
 	}
+	close(out.outChan)
+
 }
 
 func (s *scheduler) selectNewJob(j internalJob) {
@@ -248,7 +254,10 @@ func (s *scheduler) selectNewJob(j internalJob) {
 		next := j.startTime
 		if j.startImmediately {
 			next = s.now()
-			s.exec.jobsIDsIn <- j.id
+			select {
+			case <-s.shutdownCtx.Done():
+			case s.exec.jobsIDsIn <- j.id:
+			}
 		} else {
 			if next.IsZero() {
 				next = j.next(s.now())
@@ -289,7 +298,10 @@ func (s *scheduler) selectStart() {
 		next := j.startTime
 		if j.startImmediately {
 			next = s.now()
-			s.exec.jobsIDsIn <- j.id
+			select {
+			case <-s.shutdownCtx.Done():
+			case s.exec.jobsIDsIn <- id:
+			}
 		} else {
 			if next.IsZero() {
 				next = j.next(s.now())
@@ -297,14 +309,20 @@ func (s *scheduler) selectStart() {
 
 			jobID := id
 			j.timer = s.clock.AfterFunc(next.Sub(s.now()), func() {
-				s.exec.jobsIDsIn <- jobID
+				select {
+				case <-s.shutdownCtx.Done():
+				case s.exec.jobsIDsIn <- jobID:
+				}
 			})
 		}
 		j.nextRun = next
 		s.jobs[id] = j
 	}
-	s.startedCh <- struct{}{}
-	s.logger.Info("scheduler started")
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.startedCh <- struct{}{}:
+		s.logger.Info("scheduler started")
+	}
 }
 
 // -----------------------------------------------
@@ -328,8 +346,16 @@ func (s *scheduler) jobFromInternalJob(in internalJob) job {
 
 func (s *scheduler) Jobs() []Job {
 	outChan := make(chan []Job)
-	s.allJobsOutRequest <- allJobsOutRequest{outChan: outChan}
-	jobs := <-outChan
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.allJobsOutRequest <- allJobsOutRequest{outChan: outChan}:
+	}
+
+	var jobs []Job
+	select {
+	case <-s.shutdownCtx.Done():
+	case jobs = <-outChan:
+	}
 
 	return jobs
 }
@@ -345,8 +371,12 @@ func (s *scheduler) addOrUpdateJob(id uuid.UUID, definition JobDefinition, taskW
 	} else {
 		currentJob := requestJobCtx(s.shutdownCtx, id, s.jobOutRequestCh)
 		if currentJob != nil && currentJob.id != uuid.Nil {
-			s.removeJobCh <- id
-			<-currentJob.ctx.Done()
+			select {
+			case <-s.shutdownCtx.Done():
+				return nil, nil
+			case s.removeJobCh <- id:
+				<-currentJob.ctx.Done()
+			}
 		}
 
 		j.id = id
@@ -389,7 +419,11 @@ func (s *scheduler) addOrUpdateJob(id uuid.UUID, definition JobDefinition, taskW
 		return nil, err
 	}
 
-	s.newJobCh <- j
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.newJobCh <- j:
+	}
+
 	return &job{
 		id:            j.id,
 		name:          j.name,
@@ -399,7 +433,10 @@ func (s *scheduler) addOrUpdateJob(id uuid.UUID, definition JobDefinition, taskW
 }
 
 func (s *scheduler) RemoveByTags(tags ...string) {
-	s.removeJobsByTagsCh <- tags
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.removeJobsByTagsCh <- tags:
+	}
 }
 
 func (s *scheduler) RemoveJob(id uuid.UUID) error {
@@ -407,7 +444,11 @@ func (s *scheduler) RemoveJob(id uuid.UUID) error {
 	if j == nil || j.id == uuid.Nil {
 		return ErrJobNotFound
 	}
-	s.removeJobCh <- id
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.removeJobCh <- id:
+	}
+
 	return nil
 }
 
@@ -416,15 +457,22 @@ func (s *scheduler) RemoveJob(id uuid.UUID) error {
 // running scheduler will be scheduled immediately based
 // on definition.
 func (s *scheduler) Start() {
-	s.startCh <- struct{}{}
-	<-s.startedCh
+	select {
+	case <-s.shutdownCtx.Done():
+	case s.startCh <- struct{}{}:
+		<-s.startedCh
+	}
 }
 
 // StopJobs stops the execution of all jobs in the scheduler.
 // This can be useful in situations where jobs need to be
 // paused globally and then restarted with Start().
 func (s *scheduler) StopJobs() error {
-	s.stopCh <- struct{}{}
+	select {
+	case <-s.shutdownCtx.Done():
+		return nil
+	case s.stopCh <- struct{}{}:
+	}
 	select {
 	case err := <-s.stopErrCh:
 		return err

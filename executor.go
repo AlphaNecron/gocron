@@ -116,7 +116,10 @@ func (e *executor) start() {
 							// all runners are busy, reschedule the work for later
 							// which means we just skip it here and do nothing
 							// TODO when metrics are added, this should increment a rescheduled metric
-							e.jobIDsOut <- id
+							select {
+							case e.jobIDsOut <- id:
+							default:
+							}
 						}
 					} else {
 						// since we're not using LimitModeReschedule, but instead using LimitModeWait
@@ -162,10 +165,13 @@ func (e *executor) start() {
 								// runner is busy, reschedule the work for later
 								// which means we just skip it here and do nothing
 								// TODO when metrics are added, this should increment a rescheduled metric
-								e.jobIDsOut <- id
+								select {
+								case e.jobIDsOut <- id:
+								default:
+								}
 							}
 						} else {
-							// wait mode, fill up that queue
+							// wait mode, fill up that queue (buffered channel, so it's ok)
 							runner.in <- id
 						}
 					} else {
@@ -322,6 +328,7 @@ func (e *executor) limitModeRunner(name string, in chan uuid.UUID, wg *waitGroup
 func (e *executor) runJob(j internalJob) {
 	select {
 	case <-e.ctx.Done():
+	case <-j.ctx.Done():
 	default:
 		if e.elector != nil {
 			if err := e.elector.IsLeader(j.ctx); err != nil {
@@ -329,7 +336,15 @@ func (e *executor) runJob(j internalJob) {
 			}
 		}
 		_ = callJobFuncWithParams(j.beforeJobRuns, j.id)
-		e.jobIDsOut <- j.id
+
+		select {
+		case <-e.ctx.Done():
+			return
+		case <-j.ctx.Done():
+			return
+		case e.jobIDsOut <- j.id:
+		}
+
 		err := callJobFuncWithParams(j.function, j.parameters...)
 		if err != nil {
 			_ = callJobFuncWithParams(j.afterJobRunsWithError, j.id, err)
