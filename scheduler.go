@@ -194,7 +194,6 @@ func (s *scheduler) selectAllJobsOutRequest(out allJobsOutRequest) {
 	case <-s.shutdownCtx.Done():
 	case out.outChan <- outJobs:
 	}
-
 }
 
 func (s *scheduler) selectRemoveJob(id uuid.UUID) {
@@ -219,7 +218,6 @@ func (s *scheduler) selectExecJobIDsOut(id uuid.UUID) {
 					return
 				case s.removeJobCh <- id:
 				}
-
 			}()
 			return
 		}
@@ -233,7 +231,6 @@ func (s *scheduler) selectExecJobIDsOut(id uuid.UUID) {
 			return
 		case s.exec.jobsIDsIn <- id:
 		}
-
 	})
 	s.jobs[id] = j
 }
@@ -246,7 +243,6 @@ func (s *scheduler) selectJobOutRequest(out jobOutRequest) {
 		}
 	}
 	close(out.outChan)
-
 }
 
 func (s *scheduler) selectNewJob(j internalJob) {
