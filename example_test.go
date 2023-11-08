@@ -13,6 +13,7 @@ import (
 
 func ExampleAfterJobRuns() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -33,6 +34,7 @@ func ExampleAfterJobRuns() {
 
 func ExampleAfterJobRunsWithError() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -53,6 +55,7 @@ func ExampleAfterJobRunsWithError() {
 
 func ExampleBeforeJobRuns() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -73,6 +76,7 @@ func ExampleBeforeJobRuns() {
 
 func ExampleCronJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		CronJob(
@@ -98,6 +102,7 @@ func ExampleCronJob() {
 
 func ExampleDailyJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DailyJob(
@@ -117,6 +122,7 @@ func ExampleDailyJob() {
 
 func ExampleDurationJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -130,6 +136,7 @@ func ExampleDurationJob() {
 
 func ExampleDurationRandomJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationRandomJob(
@@ -144,6 +151,7 @@ func ExampleDurationRandomJob() {
 
 func ExampleJob_ID() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(
@@ -159,6 +167,7 @@ func ExampleJob_ID() {
 
 func ExampleJob_LastRun() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(
@@ -174,6 +183,7 @@ func ExampleJob_LastRun() {
 
 func ExampleJob_NextRun() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(
@@ -189,6 +199,7 @@ func ExampleJob_NextRun() {
 
 func ExampleMonthlyJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		MonthlyJob(
@@ -207,12 +218,14 @@ func ExampleMonthlyJob() {
 
 func ExampleNewScheduler() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	fmt.Println(s.Jobs())
 }
 
 func ExampleScheduler_NewJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, err := s.NewJob(
 		DurationJob(
@@ -230,6 +243,7 @@ func ExampleScheduler_NewJob() {
 
 func ExampleScheduler_RemoveByTags() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -263,6 +277,7 @@ func ExampleScheduler_RemoveByTags() {
 
 func ExampleScheduler_RemoveJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(
@@ -274,10 +289,10 @@ func ExampleScheduler_RemoveJob() {
 	)
 
 	fmt.Println(len(s.Jobs()))
+	time.Sleep(20 * time.Millisecond)
 
 	_ = s.RemoveJob(j.ID())
 
-	time.Sleep(20 * time.Millisecond)
 	fmt.Println(len(s.Jobs()))
 	// Output:
 	// 1
@@ -286,6 +301,7 @@ func ExampleScheduler_RemoveJob() {
 
 func ExampleScheduler_Start() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		CronJob(
@@ -302,6 +318,7 @@ func ExampleScheduler_Start() {
 
 func ExampleScheduler_StopJobs() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		CronJob(
@@ -320,6 +337,7 @@ func ExampleScheduler_StopJobs() {
 
 func ExampleScheduler_Update() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		CronJob(
@@ -348,6 +366,7 @@ func ExampleScheduler_Update() {
 
 func ExampleWeeklyJob() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		WeeklyJob(
@@ -410,6 +429,7 @@ func ExampleWithDistributedElector() {
 
 func ExampleWithEventListeners() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -495,6 +515,7 @@ func ExampleWithLimitConcurrentJobs() {
 
 func ExampleWithLimitedRuns() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -536,6 +557,7 @@ func ExampleWithLogger() {
 
 func ExampleWithName() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(
@@ -556,6 +578,7 @@ func ExampleWithName() {
 
 func ExampleWithSingletonMode() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	_, _ = s.NewJob(
 		DurationJob(
@@ -574,6 +597,7 @@ func ExampleWithSingletonMode() {
 
 func ExampleWithStartAt() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	start := time.Date(9999, 9, 9, 9, 9, 9, 9, time.UTC)
 
@@ -610,6 +634,7 @@ func ExampleWithStopTimeout() {
 
 func ExampleWithTags() {
 	s, _ := NewScheduler()
+	defer func() { _ = s.Shutdown() }()
 
 	j, _ := s.NewJob(
 		DurationJob(

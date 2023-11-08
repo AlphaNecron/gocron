@@ -2,7 +2,6 @@ package gocron
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"testing"
 	"time"
@@ -306,7 +305,7 @@ func TestScheduler_StopTimeout(t *testing.T) {
 			s.Start()
 			time.Sleep(time.Millisecond * 200)
 			err = s.Shutdown()
-			assert.ErrorIs(t, err, ErrStopTimedOut)
+			assert.ErrorIs(t, err, ErrStopJobsTimedOut)
 			cancel()
 			time.Sleep(2 * time.Second)
 		})
@@ -377,6 +376,7 @@ func TestScheduler_Shutdown(t *testing.T) {
 }
 
 func TestScheduler_NewJob(t *testing.T) {
+	goleak.VerifyNone(t)
 	tests := []struct {
 		name string
 		jd   JobDefinition
@@ -475,6 +475,7 @@ func TestScheduler_NewJob(t *testing.T) {
 }
 
 func TestScheduler_NewJobErrors(t *testing.T) {
+	goleak.VerifyNone(t)
 	tests := []struct {
 		name string
 		jd   JobDefinition
@@ -726,16 +727,21 @@ func TestScheduler_NewJobErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, err := newTestScheduler()
+			s, err := newTestScheduler(
+				WithStopTimeout(time.Millisecond * 50),
+			)
 			require.NoError(t, err)
 
 			_, err = s.NewJob(tt.jd, NewTask(func() {}), tt.opts...)
 			assert.ErrorIs(t, err, tt.err)
+			err = s.Shutdown()
+			require.NoError(t, err)
 		})
 	}
 }
 
 func TestScheduler_Singleton(t *testing.T) {
+	goleak.VerifyNone(t)
 	tests := []struct {
 		name        string
 		duration    time.Duration
@@ -789,7 +795,6 @@ func TestScheduler_Singleton(t *testing.T) {
 			}
 
 			stop := time.Now()
-			log.Println(stop.Sub(start))
 			require.NoError(t, s.Shutdown())
 
 			assert.GreaterOrEqual(t, stop.Sub(start), tt.expectedMin)
@@ -799,6 +804,7 @@ func TestScheduler_Singleton(t *testing.T) {
 }
 
 func TestScheduler_LimitMode(t *testing.T) {
+	goleak.VerifyNone(t)
 	tests := []struct {
 		name        string
 		numJobs     int
@@ -836,7 +842,7 @@ func TestScheduler_LimitMode(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			jobRanCh := make(chan struct{}, tt.numJobs*2)
+			jobRanCh := make(chan struct{}, 20)
 
 			for i := 0; i < tt.numJobs; i++ {
 				_, err = s.NewJob(

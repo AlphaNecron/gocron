@@ -43,6 +43,7 @@ type scheduler struct {
 	startCh            chan struct{}
 	startedCh          chan struct{}
 	stopCh             chan struct{}
+	stopErrCh          chan error
 	allJobsOutRequest  chan allJobsOutRequest
 	jobOutRequestCh    chan jobOutRequest
 	newJobCh           chan internalJob
@@ -89,6 +90,7 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 		startCh:            make(chan struct{}),
 		startedCh:          make(chan struct{}),
 		stopCh:             make(chan struct{}),
+		stopErrCh:          make(chan error),
 		jobOutRequestCh:    make(chan jobOutRequest),
 		allJobsOutRequest:  make(chan allJobsOutRequest),
 	}
@@ -155,8 +157,10 @@ func NewScheduler(options ...SchedulerOption) (Scheduler, error) {
 
 func (s *scheduler) stopScheduler() {
 	s.logger.Debug("stopping scheduler")
-	s.exec.stopCh <- struct{}{}
-	s.started = false
+	if s.started {
+		s.exec.stopCh <- struct{}{}
+	}
+
 	for _, j := range s.jobs {
 		j.stop()
 	}
@@ -166,6 +170,16 @@ func (s *scheduler) stopScheduler() {
 		j.ctx, j.cancel = context.WithCancel(s.shutdownCtx)
 		s.jobs[id] = j
 	}
+	var err error
+	if s.started {
+		select {
+		case err = <-s.exec.done:
+		case <-time.After(s.exec.stopTimeout + 1*time.Second):
+			err = ErrStopExecutorTimedOut
+		}
+	}
+	s.stopErrCh <- err
+	s.started = false
 	s.logger.Debug("scheduler stopped")
 }
 
@@ -412,10 +426,10 @@ func (s *scheduler) Start() {
 func (s *scheduler) StopJobs() error {
 	s.stopCh <- struct{}{}
 	select {
-	case err := <-s.exec.done:
+	case err := <-s.stopErrCh:
 		return err
-	case <-time.After(s.exec.stopTimeout + time.Second):
-		return ErrStopTimedOut
+	case <-time.After(s.exec.stopTimeout + 2*time.Second):
+		return ErrStopSchedulerTimedOut
 	}
 }
 
@@ -425,10 +439,10 @@ func (s *scheduler) StopJobs() error {
 func (s *scheduler) Shutdown() error {
 	s.shutdownCancel()
 	select {
-	case err := <-s.exec.done:
+	case err := <-s.stopErrCh:
 		return err
-	case <-time.After(s.exec.stopTimeout + time.Second):
-		return ErrStopTimedOut
+	case <-time.After(s.exec.stopTimeout + 2*time.Second):
+		return ErrStopSchedulerTimedOut
 	}
 }
 
@@ -531,7 +545,6 @@ func WithLimitConcurrentJobs(limit uint, mode LimitMode) SchedulerOption {
 			mode:  mode,
 			limit: limit,
 			in:    make(chan uuid.UUID, 1000),
-			done:  make(chan struct{}, limit),
 		}
 		if mode == LimitModeReschedule {
 			s.exec.limitMode.rescheduleLimiter = make(chan struct{}, limit)
